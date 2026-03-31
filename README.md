@@ -1,5 +1,5 @@
 
-# Odoo OpenClaw Plugin
+# OMOP
 
 ![Status](https://img.shields.io/badge/status-WIP-orange)
 ![OpenClaw](https://img.shields.io/badge/OpenClaw-plugin-blue)
