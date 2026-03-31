@@ -1,0 +1,44 @@
+{
+    "id": "odoo-plugin",
+    "name": "Odoo Plugin",
+    "description": "Safe Odoo connector for OpenClaw",
+    "version": "0.1.0",
+    "skills": ["./skills"],
+    "configSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "baseUrl": {
+                "type": "string"
+            },
+            "database": {
+                "type": "string"
+            },
+            "profile": {
+                "type": "string",
+                "enum": ["readonly", "project_ops"],
+                "default": "readonly"
+            },
+            "readOnly": {
+                "type": "boolean",
+                "default": true
+            },
+            "defaultLimit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 200,
+                "default": 25
+            }
+        },
+    "required": ["baseUrl", "database"]
+    },
+    "uiHints": {
+        "labels": {
+            "baseUrl": "Odoo URL",
+            "database": "Database",
+            "profile": "Access profile",
+            "readOnly": "Read only",
+            "defaultLimit": "Default limit"
+        }
+    }
+}
