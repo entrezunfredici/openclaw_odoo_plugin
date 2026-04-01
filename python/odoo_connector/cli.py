@@ -1,9 +1,9 @@
 import json
 import sys
 
-from odoo_client import OdooClient
-from access_policy import OdooAccessPolicy
-from validators import validate_action_payload
+from python.odoo_connector.odoo_client import OdooClient
+from python.odoo_connector.access_policy import OdooAccessPolicy
+from python.odoo_connector.validators import validate_action_payload
 from secret_service import SecretService
 
 
