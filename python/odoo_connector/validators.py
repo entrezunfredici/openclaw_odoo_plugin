@@ -4,7 +4,7 @@ from .errors import ValidationError
 from .odoo_client import OdooClient
 
 SUPPORTED_ACTIONS = {
-    "prokject.task":["c", "r"]
+    "project.task":["c", "r"]
 }
 
 SPECIFIC_RULES = {
@@ -20,7 +20,7 @@ SPECIFIC_RULES = {
             "action":"c",
             "subject": "confirmed",
             "operation": "in",
-            "compared":"payload"
+            "compared":"payload",
             "message":"'description' must be a string when provided"
         }
     ]
