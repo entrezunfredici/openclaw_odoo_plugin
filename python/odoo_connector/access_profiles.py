@@ -1,9 +1,6 @@
 """Access profile storage and defaults."""
-
 from __future__ import annotations
-
 from dataclasses import dataclass
-
 from .errors import ConfigurationError, NotFoundError
 
 

@@ -5,11 +5,9 @@ Policy, validation, authorization, logging, and rollback are implemented elsewhe
 """
 
 from __future__ import annotations
-
 from collections.abc import Mapping, Sequence
 from typing import Any
 from urllib.parse import urlparse
-
 from .errors import ServiceError
 
 try:
@@ -53,6 +51,10 @@ class OdooClient:
             return self.client.get_model(model_name)
         except Exception as exc:
             raise ServiceError(f"Unable to access model '{model_name}'") from exc
+
+    def get_model_schema(self, model: str) -> dict[str, dict]:
+        odoo_model = self.get_model(model)
+        return odoo_model.fields_get(attributes=["type", "required", "readonly", "string"])
 
     def get(
         self,

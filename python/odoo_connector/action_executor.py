@@ -15,9 +15,8 @@ from .secret_service import SecretService
 from .snapshot_store import SnapshotStore
 from .templates import TemplateStore
 from .validators import validate_action_payload, validate_config
+from .odoo_client import OdooClient
 
-READ_MODEL = "project.task"
-WRITE_MODEL = "project.task"
 
 
 class ActionExecutor:
@@ -28,9 +27,9 @@ class ActionExecutor:
         self.snapshot_store = SnapshotStore()
         self.rollback_service = RollbackService(self.snapshot_store)
 
-    def execute(self, action: str, payload: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
+    def execute(self, client, model, action: str, payload: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
         validate_config(config)
-        validate_action_payload(action, payload)
+        validate_action_payload(client, model, action, payload)
 
         connection_profiles = ConnectionProfiles.from_config(config)
         access_profiles = AccessProfiles.from_config(config)

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import json
-import sys
+import json, sys
 
 from .action_executor import ActionExecutor
 from .errors import ConnectorError
@@ -13,13 +12,15 @@ def main() -> None:
     raw = sys.stdin.read()
     data = json.loads(raw)
 
+    client = data.get("client")
+    model = data.get("model")
     action = data.get("action")
     payload = data.get("payload", {})
     config = payload.pop("config", {})
 
     executor = ActionExecutor()
     try:
-        result = executor.execute(action, payload, config)
+        result = executor.execute(client, model, action, payload, config)
     except ConnectorError as exc:
         print(json.dumps(exc.to_dict()))
         sys.exit(1)
