@@ -1,8 +1,16 @@
+"""Low-level Odoo transport client.
+
+This module only handles communication with Odoo and transport-level errors.
+Policy, validation, authorization, logging, and rollback are implemented elsewhere.
+"""
+
+from __future__ import annotations
+
 from collections.abc import Mapping, Sequence
 from typing import Any
 from urllib.parse import urlparse
 
-from . import NotFoundError, ServiceError
+from .errors import ServiceError
 
 try:
     import odoolib
@@ -12,9 +20,8 @@ except ImportError as exc:
 else:
     _ODOOLIB_IMPORT_ERROR = None
 
-class OdooClient:
-    """Small Odoo JSON-RPC wrapper with normalized errors."""
 
+class OdooClient:
     def __init__(self, url: str, port: int, database: str, login: str, password: str) -> None:
         if odoolib is None:
             raise ServiceError(
@@ -41,15 +48,6 @@ class OdooClient:
         parsed = urlparse(url)
         return parsed.hostname or parsed.path or url
 
-    def get_model_list(self) -> list[dict[str, Any]]:
-        try:
-            ir_model = self.get_model("ir.model")
-            return ir_model.search_read([], ["model", "name", "state"])
-        except ServiceError:
-            raise
-        except Exception as exc:
-            raise ServiceError("Unable to list Odoo models") from exc
-
     def get_model(self, model_name: str) -> Any:
         try:
             return self.client.get_model(model_name)
@@ -68,20 +66,13 @@ class OdooClient:
             search_kwargs = {}
             if limit is not None:
                 search_kwargs["limit"] = limit
-            objects = model.search_read(list(domain), list(fields), **search_kwargs)
+            return model.search_read(list(domain), list(fields), **search_kwargs)
         except ServiceError:
             raise
         except Exception as exc:
             raise ServiceError(
                 f"Unable to get records matching '{domain}' in '{model_name}'"
             ) from exc
-
-        if not objects:
-            raise NotFoundError(
-                f"Records matching '{domain}' not found in '{model_name}'"
-            )
-
-        return objects
 
     def post(self, model_name: str, values: Mapping[str, Any]) -> int:
         try:

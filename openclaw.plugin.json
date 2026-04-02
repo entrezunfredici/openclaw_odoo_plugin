@@ -1,44 +1,141 @@
 {
-    "id": "odoo-plugin",
-    "name": "Odoo Plugin",
-    "description": "Safe Odoo connector for OpenClaw",
-    "version": "0.1.0",
-    "skills": ["./skills"],
-    "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-            "baseUrl": {
-                "type": "string"
-            },
-            "database": {
-                "type": "string"
-            },
-            "profile": {
-                "type": "string",
-                "enum": ["readonly", "project_ops"],
-                "default": "readonly"
-            },
-            "readOnly": {
-                "type": "boolean",
-                "default": true
-            },
-            "defaultLimit": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 200,
-                "default": 25
-            }
-        },
-    "required": ["baseUrl", "database"]
-    },
-    "uiHints": {
-        "labels": {
-            "baseUrl": "Odoo URL",
-            "database": "Database",
-            "profile": "Access profile",
-            "readOnly": "Read only",
-            "defaultLimit": "Default limit"
+  "id": "odoo-plugin",
+  "name": "Odoo Plugin",
+  "description": "Safe Odoo connector for OpenClaw",
+  "version": "0.1.0",
+  "skills": [
+    "./skills"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "active_connection_profile_id": {
+        "type": "string",
+        "default": "default"
+      },
+      "active_access_profile_id": {
+        "type": "string",
+        "default": "readonly"
+      },
+      "default_limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 200,
+        "default": 25
+      },
+      "read_only": {
+        "type": "boolean",
+        "default": true
+      },
+      "baseUrl": {
+        "type": "string"
+      },
+      "database": {
+        "type": "string"
+      },
+      "profile": {
+        "type": "string",
+        "enum": [
+          "readonly",
+          "project_ops"
+        ],
+        "default": "readonly"
+      },
+      "readOnly": {
+        "type": "boolean",
+        "default": true
+      },
+      "defaultLimit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 200,
+        "default": 25
+      },
+      "connection_profiles": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "label": { "type": "string" },
+            "base_url": { "type": "string" },
+            "database": { "type": "string" },
+            "login": { "type": "string" },
+            "auth_type": { "type": "string", "enum": ["password", "api_key"] },
+            "secret_ref": { "type": "string" },
+            "api_mode": { "type": "string", "enum": ["jsonrpc"] },
+            "enabled": { "type": "boolean" },
+            "port": { "type": "integer" }
+          },
+          "required": ["id", "label", "base_url", "database", "login", "auth_type", "secret_ref", "api_mode", "enabled"]
         }
+      },
+      "access_profiles": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "label": { "type": "string" },
+            "connection_profile_id": { "type": "string" },
+            "enabled": { "type": "boolean" },
+            "default_read_confirmation": { "type": "boolean" },
+            "default_create_confirmation": { "type": "boolean" },
+            "default_write_confirmation": { "type": "boolean" },
+            "default_delete_confirmation": { "type": "boolean" }
+          },
+          "required": ["id", "label", "connection_profile_id", "enabled", "default_read_confirmation", "default_create_confirmation", "default_write_confirmation", "default_delete_confirmation"]
+        }
+      },
+      "permission_rules": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "access_profile_id": { "type": "string" },
+            "model": { "type": "string" },
+            "field": { "type": "string" },
+            "operation": { "type": "string", "enum": ["read", "create", "write", "delete"] },
+            "allowed": { "type": "boolean" },
+            "require_confirmation": { "type": "boolean" },
+            "template_ids": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["id", "access_profile_id", "model", "field", "operation", "allowed"]
+        }
+      },
+      "templates": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "label": { "type": "string" },
+            "action": { "type": "string", "enum": ["create_task"] },
+            "required_variables": { "type": "array", "items": { "type": "string" } },
+            "payload_template": { "type": "object" },
+            "enabled": { "type": "boolean" }
+          },
+          "required": ["id", "label", "action", "required_variables", "payload_template", "enabled"]
+        }
+      }
     }
+  },
+  "uiHints": {
+    "labels": {
+      "active_connection_profile_id": "Active connection profile",
+      "active_access_profile_id": "Active access profile",
+      "default_limit": "Default task limit",
+      "read_only": "Global read only",
+      "connection_profiles": "Connection profiles",
+      "access_profiles": "Access profiles",
+      "permission_rules": "Permission rules",
+      "templates": "Action templates"
+    }
+  }
 }

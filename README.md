@@ -1,140 +1,112 @@
+# OMOP - OpenClaw Odoo Connector (Safe by Default)
 
-# OMOP
+A deny-by-default OpenClaw plugin that provides bounded Odoo actions for AI agents.
 
-![Status](https://img.shields.io/badge/status-WIP-orange)
-![OpenClaw](https://img.shields.io/badge/OpenClaw-plugin-blue)
-![Odoo](https://img.shields.io/badge/Odoo-safe%20connector-875A7B)
-![License](https://img.shields.io/badge/license-TBD-lightgrey)
+> This project is intentionally **not** a generic Odoo ORM proxy.
 
-A safe and configurable OpenClaw plugin for connecting an AI agent to Odoo.
+## Current implementation status (this iteration)
 
-This project is built around one principle:
+Implemented now:
+- plugin entrypoint with two bounded tools:
+  - `odoo_list_tasks` (safe read)
+  - `odoo_create_task` (bounded write)
+- structured config support for:
+  - `ConnectionProfile`
+  - `AccessProfile`
+  - `PermissionRule`
+  - `Template`
+- Python backend modules split by responsibility:
+  - profiles, rules, validators, executor, logging, snapshots, rollback metadata, Odoo transport, secrets, errors
+- write pipeline for `create_task` enforces:
+  - payload validation
+  - deny-by-default authorization by `(model, field, operation)`
+  - configurable confirmation requirement
+  - snapshot creation before write execution
+  - action logging
+- rollback interface + reversibility metadata (rollback execution is still stubbed)
 
-> **Do not give an agent unrestricted ERP access.**
-> Expose only bounded, validated, auditable business actions.
+Not implemented yet:
+- persistent storage (current logs/snapshots are in-memory)
+- bounded admin tools for profile/rule/template management
+- additional bounded business actions beyond `list_tasks` and `create_task`
+- rollback execution implementation
 
----
+## Safety model
 
-## Why this plugin exists
+- no access unless explicitly allowed by permission rule
+- authorization decision unit is `(model, field, operation)`
+- read and write confirmations come from access profile defaults, then rule overrides
+- global `read_only` blocks write actions
+- raw Odoo client does transport only (no policy decisions)
+- secrets are resolved internally and never returned in tool output
 
-Most "generic Odoo connectors" are too broad for agent usage.
+## Repository layout
 
-They usually allow:
+- `src/` → OpenClaw plugin layer (tool registration + config + Python bridge)
+- `skills/odoo/SKILL.md` → embedded safe usage instructions
+- `python/odoo_connector/` → backend services
 
-- unrestricted model browsing
-- arbitrary create/update/delete operations
-- fuzzy object creation
-- excessive permissions
-- weak auditability
+Key backend modules:
+- `connection_profiles.py`
+- `access_profiles.py`
+- `permission_rules.py`
+- `templates.py`
+- `action_executor.py`
+- `action_log.py`
+- `snapshot_store.py`
+- `rollback_service.py`
+- `odoo_client.py`
+- `validators.py`
+- `secret_service.py`
+- `errors.py`
 
-This plugin takes the opposite approach:
+## Configuration
 
-- narrow business scope
-- explicit tool definitions
-- access control by profile
-- validation before every Odoo call
-- write protection by default
-- audit logging for sensitive actions
+The plugin now accepts structured config fields in `openclaw.plugin.json`:
+- `active_connection_profile_id`
+- `active_access_profile_id`
+- `default_limit`
+- `read_only`
+- `connection_profiles[]`
+- `access_profiles[]`
+- `permission_rules[]`
+- `templates[]`
 
----
+Legacy compatibility fields (`baseUrl`, `database`, `profile`, `readOnly`, `defaultLimit`) are still mapped into a default connection/access setup for incremental migration.
 
-## Features
+## Action behavior
 
-Current / planned capabilities:
+### `odoo_list_tasks`
+- Operation: read
+- Model: `project.task`
+- Required input: `project_id`
+- Optional input: `limit`
 
-- List projects
-- List project tasks
-- Read task details
-- Create a task
-- Move a task to another stage
-- Add a comment / chatter message
-- Enforce access policies by profile
-- Keep Odoo credentials internal to the connector
-- Log write operations for later review
+### `odoo_create_task`
+- Operation: create
+- Model: `project.task`
+- Required input: `project_id`, `name`
+- Optional input: `description`, `confirmed`
+- Enforcement chain:
+  1. validation
+  2. authorization rules by field
+  3. confirmation policy check
+  4. action log start
+  5. snapshot creation
+  6. Odoo create call
+  7. action log success
 
----
+## Security notes
 
-## Architecture
+- Delete is not exposed in this iteration.
+- Arbitrary model/method execution is not exposed.
+- Template handling is bounded to known actions (`create_task` currently).
+- Secrets are resolved from `ODOO_SECRET_<SECRET_REF>` or keyring fallback.
 
-This project is split into three layers:
+## TODO - next iteration
 
-### 1. OpenClaw plugin layer
-
-Responsible for:
-
-- plugin registration
-- tool registration
-- configuration loading
-- config validation
-- bridge to the Python backend
-- OpenClaw-facing responses
-
-### 2. Embedded skill layer
-
-Responsible for:
-
-- teaching the agent when to use the tools
-- describing the allowed workflow
-- reinforcing safety boundaries
-- discouraging unsafe or ambiguous actions
-
-### 3. Python Odoo core
-
-Responsible for:
-
-- Odoo communication
-- payload validation
-- access policy enforcement
-- secret resolution
-- business action execution
-- clean domain/service errors
-
----
-
-## Project structure
-
-```text
-odoo-openclaw-plugin/
-├── package.json
-├── openclaw.plugin.json
-├── tsconfig.json
-├── README.md
-├── src/
-│   ├── index.ts
-│   ├── tools/
-│   │   ├── registerTools.ts
-│   │   ├── listTasks.ts
-│   │   ├── readTask.ts
-│   │   ├── createTask.ts
-│   │   ├── moveTask.ts
-│   │   └── addComment.ts
-│   ├── config/
-│   │   ├── resolveConfig.ts
-│   │   └── defaults.ts
-│   ├── runtime/
-│   │   ├── pythonBridge.ts
-│   │   └── auditLogger.ts
-│   └── types/
-│       └── plugin.ts
-├── skills/
-│   └── odoo/
-│       └── SKILL.md
-├── python/
-│   └── odoo_connector/
-│       ├── __init__.py
-│       ├── cli.py
-│       ├── odoo_client.py
-│       ├── access_policy.py
-│       ├── validators.py
-│       ├── secret_service.py
-│       ├── errors.py
-│       └── actions/
-│           ├── list_tasks.py
-│           ├── read_task.py
-│           ├── create_task.py
-│           ├── move_task.py
-│           └── add_comment.py
-└── tests/
-    ├── plugin/
-    └── python/
-```
+1. Add persistent stores for action logs, snapshots, profiles, rules, and templates.
+2. Add bounded admin actions for managing profiles/rules/templates.
+3. Add one safe bounded write update flow (for example move task stage) with snapshot + rollback metadata.
+4. Implement rollback execution for supported reversible actions.
+5. Add tests for validators, permission evaluation, executor flow, snapshot creation, and rollback decisions.

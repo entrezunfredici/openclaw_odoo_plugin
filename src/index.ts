@@ -3,34 +3,29 @@ import { Type } from "@sinclair/typebox";
 import { getPluginConfig } from "./config.js";
 import { runPythonAction } from "./pythonBridge.js";
 
+function toToolText(result: unknown): string {
+    return JSON.stringify(result, null, 2);
+}
+
 export default definePluginEntry({
     id: "odoo-plugin",
     name: "Odoo Plugin",
     description: "Safe Odoo connector for OpenClaw",
 
-    register(api) {
+    register(api: any) {
         api.registerTool({
             name: "odoo_list_tasks",
-            description: "List tasks from an Odoo project",
+            description: "Bounded read: list tasks from a specific Odoo project",
             parameters: Type.Object({
                 project_id: Type.Number(),
                 limit: Type.Optional(Type.Number()),
             }),
-            async execute(_id, params) {
+            async execute(_id: string, params: { project_id: number; limit?: number }) {
                 const config = getPluginConfig(api);
-
-                const result = await runPythonAction("list_tasks", {
-                    ...params,
-                    config,
-                });
+                const result = await runPythonAction("list_tasks", { ...params, config });
 
                 return {
-                    content: [
-                        {
-                            type: "text",
-                            text: JSON.stringify(result, null, 2),
-                        },
-                    ],
+                    content: [{ type: "text", text: toToolText(result) }],
                 };
             },
         });
@@ -38,27 +33,20 @@ export default definePluginEntry({
         api.registerTool(
             {
                 name: "odoo_create_task",
-                description: "Create a task in Odoo",
+                description:
+                    "Bounded write: create a project task after validation, policy checks, and logging",
                 parameters: Type.Object({
                     project_id: Type.Number(),
                     name: Type.String(),
                     description: Type.Optional(Type.String()),
+                    confirmed: Type.Optional(Type.Boolean()),
                 }),
-                async execute(_id, params) {
+                async execute(_id: string, params: { project_id: number; name: string; description?: string; confirmed?: boolean }) {
                     const config = getPluginConfig(api);
-
-                    const result = await runPythonAction("create_task", {
-                        ...params,
-                        config,
-                    });
+                    const result = await runPythonAction("create_task", { ...params, config });
 
                     return {
-                        content: [
-                            {
-                                type: "text",
-                                text: JSON.stringify(result, null, 2),
-                            },
-                        ],
+                        content: [{ type: "text", text: toToolText(result) }],
                     };
                 },
             },

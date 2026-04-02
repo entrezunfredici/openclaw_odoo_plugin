@@ -1,11 +1,30 @@
-class OdooAccessPolicy:
-    ALLOWED_ACTIONS = {
-        "readonly": {"list_tasks"},
-        "project_ops": {"list_tasks", "create_task"},
-    }
+"""Backward-compatible access policy wrapper.
 
-    @classmethod
-    def check_action(cls, action: str, profile: str) -> None:
-        allowed = cls.ALLOWED_ACTIONS.get(profile, set())
-        if action not in allowed:
-            raise Exception(f"Action '{action}' is forbidden for profile '{profile}'")
+Prefer using PermissionRuleEngine directly via ActionExecutor.
+"""
+
+from __future__ import annotations
+
+from .access_profiles import AccessProfile
+from .permission_rules import PermissionDecision, PermissionRuleEngine
+
+
+class OdooAccessPolicy:
+    def __init__(self, engine: PermissionRuleEngine) -> None:
+        self.engine = engine
+
+    def evaluate(
+        self,
+        access_profile: AccessProfile,
+        model: str,
+        operation: str,
+        fields: list[str],
+    ) -> PermissionDecision:
+        default_confirmation = access_profile.default_confirmation_for(operation)
+        return self.engine.evaluate(
+            access_profile_id=access_profile.id,
+            model=model,
+            operation=operation,
+            fields=fields,
+            default_confirmation=default_confirmation,
+        )

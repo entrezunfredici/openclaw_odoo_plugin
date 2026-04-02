@@ -1,55 +1,44 @@
+"""CLI bridge for TypeScript plugin -> Python backend execution."""
+
+from __future__ import annotations
+
 import json
 import sys
 
-from . import OdooAccessPolicy, OdooClient, SecretService, validate_action_payload
+from .action_executor import ActionExecutor
+from .errors import ConnectorError
 
 
-def main():
+def main() -> None:
     raw = sys.stdin.read()
     data = json.loads(raw)
 
-    action = data["action"]
-    payload = data["payload"]
+    action = data.get("action")
+    payload = data.get("payload", {})
+    config = payload.pop("config", {})
 
-    validate_action_payload(action, payload)
-
-    secret_service = SecretService("odoo-plugin")
-    login = secret_service.get_secret("login")
-    password = secret_service.get_secret("password")
-
-    client = OdooClient(
-        url="odoo.example.com",
-        port=443,
-        database="my_database",
-        login=login,
-        password=password,
-    )
-
-    if action == "list_tasks":
-        OdooAccessPolicy.check_action("list_tasks", payload.get("profile", "readonly"))
-        result = client.get(
-            "project.task",
-            [["project_id", "=", payload["project_id"]]],
-            ["id", "name", "stage_id", "project_id"],
-            payload.get("limit", 25),
+    executor = ActionExecutor()
+    try:
+        result = executor.execute(action, payload, config)
+    except ConnectorError as exc:
+        print(json.dumps(exc.to_dict()))
+        sys.exit(1)
+    except Exception as exc:  # noqa: BLE001
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "error": {
+                        "code": "UNHANDLED_ERROR",
+                        "message": str(exc),
+                        "details": {},
+                    },
+                }
+            )
         )
-        print(json.dumps(result))
-        return
+        sys.exit(1)
 
-    if action == "create_task":
-        OdooAccessPolicy.check_action("create_task", payload.get("profile", "readonly"))
-        if payload.get("readOnly", True):
-            raise Exception("Plugin is in read-only mode")
-
-        task_id = client.post("project.task", {
-            "project_id": payload["project_id"],
-            "name": payload["name"],
-            "description": payload.get("description", "")
-        })
-        print(json.dumps({"task_id": task_id}))
-        return
-
-    raise Exception(f"Unknown action: {action}")
+    print(json.dumps(result))
 
 
 if __name__ == "__main__":
