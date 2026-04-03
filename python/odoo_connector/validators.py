@@ -8,7 +8,7 @@ SUPPORTED_ACTIONS = {
 }
 
 SPECIFIC_RULES = {
-    "prokject.task":[
+    "project.task":[
         {
             "action":"c",
             "subject": "description",
