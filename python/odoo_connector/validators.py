@@ -26,7 +26,6 @@ SPECIFIC_RULES = {
     ]
 }
 
-
 def validate_config(config: dict) -> None:
     required = [
         "active_connection_profile_id",
