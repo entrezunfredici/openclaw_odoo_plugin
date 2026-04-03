@@ -14,7 +14,7 @@ SPECIFIC_RULES = {
             "subject": "description",
             "operation": "in",
             "compared":"payload",
-            "message":"'description' must be a string when provided"
+            "message":"'description' must be in payload"
         },
         {
             "action":"c",
@@ -54,10 +54,28 @@ def validate_rules(model: str, action: str, payload: dict):
         if rule["action"] == action :
             match(rule["operation"]):
                 case "==":
-                    if payload[rule["subject"]] == payload[rule["compared"]]:
+                    if not (payload[rule["subject"]] == payload[rule["compared"]]):
+                        raise ValidationError(rule["description"])
+                case "!=":
+                    if not (payload[rule["subject"]] != payload[rule["compared"]]):
+                        raise ValidationError(rule["description"])
+                case ">=":
+                    if not (payload[rule["subject"]] >= payload[rule["compared"]]):
+                        raise ValidationError(rule["description"])
+                case "<=":
+                    if not (payload[rule["subject"]] <= payload[rule["compared"]]):
+                        raise ValidationError(rule["description"])
+                case ">":
+                    if not (payload[rule["subject"]] > payload[rule["compared"]]):
+                        raise ValidationError(rule["description"])
+                case "<":
+                    if not (payload[rule["subject"]] < payload[rule["compared"]]):
                         raise ValidationError(rule["description"])
                 case "in":
-                    if payload[rule["subject"]] in payload[rule["compared"]]:
+                    if not (payload[rule["subject"]] in payload[rule["compared"]]):
+                        raise ValidationError(rule["description"])
+                case "not in":
+                    if not (payload[rule["subject"]] not in payload[rule["compared"]]):
                         raise ValidationError(rule["description"])
     return
 
@@ -69,7 +87,7 @@ def validate_action_payload(client: OdooClient, model: str, action: str, payload
     validate_rules(model, action, payload)
     validate_fields(client, model, payload)
 
-    if action == "r":
+    if action == "c":
         return
 
     if action == "r":
