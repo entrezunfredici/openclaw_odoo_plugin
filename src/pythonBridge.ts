@@ -4,7 +4,14 @@ import { fileURLToPath } from "node:url";
 
 const pluginRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-export function runPythonAction(action: string, payload: object): Promise<unknown> {
+export interface BridgeRequest {
+    action: string;
+    model?: string;
+    payload?: Record<string, unknown>;
+    config: Record<string, unknown>;
+}
+
+export function runPythonAction(request: BridgeRequest): Promise<unknown> {
     return new Promise((resolvePromise, rejectPromise) => {
         const child = spawn("python3", ["-m", "python.odoo_connector.cli"], {
             cwd: pluginRoot,
@@ -14,20 +21,14 @@ export function runPythonAction(action: string, payload: object): Promise<unknow
         let stdout = "";
         let stderr = "";
 
-        child.stdout.on("data", (data: Buffer) => {
-            stdout += data.toString();
-        });
-
-        child.stderr.on("data", (data: Buffer) => {
-            stderr += data.toString();
-        });
+        child.stdout.on("data", (data: Buffer) => { stdout += data.toString(); });
+        child.stderr.on("data", (data: Buffer) => { stderr += data.toString(); });
 
         child.on("close", (code: number | null) => {
             if (code !== 0) {
                 rejectPromise(new Error(stderr || `Python process exited with code ${code}`));
                 return;
             }
-
             try {
                 resolvePromise(JSON.parse(stdout));
             } catch {
@@ -35,7 +36,7 @@ export function runPythonAction(action: string, payload: object): Promise<unknow
             }
         });
 
-        child.stdin.write(JSON.stringify({ action, payload }));
+        child.stdin.write(JSON.stringify(request));
         child.stdin.end();
     });
 }

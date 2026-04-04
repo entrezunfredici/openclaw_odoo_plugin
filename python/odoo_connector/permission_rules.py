@@ -34,6 +34,28 @@ class PermissionRuleEngine:
         raw_rules = config.get("permission_rules", [])
         return cls([PermissionRule(**item) for item in raw_rules])
 
+    def is_field_allowed(
+        self,
+        *,
+        access_profile_id: str,
+        model: str,
+        operation: str,
+        field: str,
+    ) -> bool:
+        """Check a single field — used to strip unauthorised fields from payloads."""
+        field_rules = [
+            r for r in self._rules
+            if r.access_profile_id == access_profile_id
+            and r.model == model
+            and r.operation == operation
+            and (r.field == field or r.field == "*")
+        ]
+        if not field_rules:
+            return False
+        # explicit deny beats wildcard allow
+        field_rules.sort(key=lambda r: (0 if r.field == field else 1, 0 if not r.allowed else 1))
+        return bool(field_rules[0].allowed)
+
     def evaluate(
         self,
         access_profile_id: str,
@@ -60,11 +82,10 @@ class PermissionRuleEngine:
                     allowed=False,
                     require_confirmation=False,
                     matched_rule_ids=matched_rule_ids,
-                    reason=(
-                        f"No rule matched (model={model}, field={field}, operation={operation})"
-                    ),
+                    reason=f"No rule matched (model={model}, field={field}, operation={operation})",
                 )
 
+            # explicit deny wins
             denying_rule = next((rule for rule in field_rules if not rule.allowed), None)
             if denying_rule is not None:
                 matched_rule_ids.append(denying_rule.id)

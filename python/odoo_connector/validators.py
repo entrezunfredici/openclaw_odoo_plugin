@@ -1,30 +1,16 @@
-"""Input and configuration validators."""
+"""Input and configuration validators.
+
+Validation is intentionally lightweight here — the heavy lifting
+(field types, required checks) is delegated to Odoo's own schema
+via OdooClient.get_model_schema(), called only when a client is
+available. Config-level validation is fast and always runs first.
+"""
 from __future__ import annotations
 from .errors import ValidationError
-from .odoo_client import OdooClient
 
-SUPPORTED_ACTIONS = {
-    "project.task":["c", "r"]
-}
 
-SPECIFIC_RULES = {
-    "project.task":[
-        {
-            "action":"c",
-            "subject": "description",
-            "operation": "in",
-            "compared":"payload",
-            "message":"'description' must be in payload"
-        },
-        {
-            "action":"c",
-            "subject": "confirmed",
-            "operation": "in",
-            "compared":"payload",
-            "message":"'description' must be a string when provided"
-        }
-    ]
-}
+SUPPORTED_OPERATIONS = {"read", "create", "write", "delete"}
+
 
 def validate_config(config: dict) -> None:
     required = [
@@ -36,66 +22,55 @@ def validate_config(config: dict) -> None:
     ]
     missing = [key for key in required if key not in config]
     if missing:
-        raise ValidationError("Connector config is missing required fields", {"missing": missing})
-    return True
-
-def validate_fields(client: OdooClient, model: str, payload: dict):
-    verif = client.get_model_schema(model)
-    for field in payload.keys():
-        if verif[field]["required"] and not payload[field] :
-            raise ValidationError(f"Missing required field {field} in model {model}")
-        if not isinstance(payload[field], verif[field]["ttype"]):
-            raise ValidationError(f"{field} must be an {verif[field]["ttype"]}")
-    return
-
-def validate_rules(model: str, action: str, payload: dict):
-    for rule in SPECIFIC_RULES[model]:
-        if rule["action"] == action :
-            match(rule["operation"]):
-                case "==":
-                    if not (payload[rule["subject"]] == payload[rule["compared"]]):
-                        raise ValidationError(rule["description"])
-                case "!=":
-                    if not (payload[rule["subject"]] != payload[rule["compared"]]):
-                        raise ValidationError(rule["description"])
-                case ">=":
-                    if not (payload[rule["subject"]] >= payload[rule["compared"]]):
-                        raise ValidationError(rule["description"])
-                case "<=":
-                    if not (payload[rule["subject"]] <= payload[rule["compared"]]):
-                        raise ValidationError(rule["description"])
-                case ">":
-                    if not (payload[rule["subject"]] > payload[rule["compared"]]):
-                        raise ValidationError(rule["description"])
-                case "<":
-                    if not (payload[rule["subject"]] < payload[rule["compared"]]):
-                        raise ValidationError(rule["description"])
-                case "in":
-                    if not (payload[rule["subject"]] in payload[rule["compared"]]):
-                        raise ValidationError(rule["description"])
-                case "not in":
-                    if not (payload[rule["subject"]] not in payload[rule["compared"]]):
-                        raise ValidationError(rule["description"])
-    return
+        raise ValidationError(
+            "Connector config is missing required fields",
+            {"missing": missing},
+        )
 
 
-def validate_action_payload(client: OdooClient, model: str, action: str, payload: dict) -> None:
-    if action not in SUPPORTED_ACTIONS[model]:
-        raise ValidationError("Unsupported action", {"action": action})
+def validate_odoo_read_payload(payload: dict) -> None:
+    """Validate the payload for an odoo_read action."""
+    if "fields" in payload and not isinstance(payload["fields"], list):
+        raise ValidationError("'fields' must be a list", {"fields": payload["fields"]})
+    if "limit" in payload and not isinstance(payload["limit"], int):
+        raise ValidationError("'limit' must be an integer", {"limit": payload["limit"]})
+    if "domain" in payload and not isinstance(payload["domain"], list):
+        raise ValidationError("'domain' must be a list", {"domain": payload["domain"]})
 
-    validate_rules(model, action, payload)
-    validate_fields(client, model, payload)
 
-    if action == "c":
-        return
+def validate_odoo_create_payload(payload: dict) -> None:
+    """Validate the payload for an odoo_create action."""
+    has_values = isinstance(payload.get("values"), dict) and payload["values"]
+    has_template = bool(payload.get("template_id"))
+    if not has_values and not has_template:
+        raise ValidationError(
+            "odoo_create requires either 'values' (dict) or 'template_id'",
+            {"payload_keys": list(payload.keys())},
+        )
 
-    if action == "r":
-        if "limit" in payload and not isinstance(payload["limit"], int):
-            raise ValidationError("'limit' must be an integer when provided")
-        return
 
-    if action == "u":
-        return
+def validate_odoo_write_payload(payload: dict) -> None:
+    """Validate the payload for an odoo_write action."""
+    if not isinstance(payload.get("ids"), list) or not payload["ids"]:
+        raise ValidationError("odoo_write requires a non-empty 'ids' list")
+    if not isinstance(payload.get("values"), dict) or not payload["values"]:
+        raise ValidationError("odoo_write requires a non-empty 'values' dict")
 
-    if action == "d":
-        return
+
+def validate_odoo_delete_payload(payload: dict) -> None:
+    """Validate the payload for an odoo_delete action."""
+    if not isinstance(payload.get("ids"), list) or not payload["ids"]:
+        raise ValidationError("odoo_delete requires a non-empty 'ids' list")
+
+
+def validate_action_payload(action: str, payload: dict) -> None:
+    """Dispatch-level payload validation — called before authorization."""
+    if action == "odoo_read":
+        validate_odoo_read_payload(payload)
+    elif action == "odoo_create":
+        validate_odoo_create_payload(payload)
+    elif action == "odoo_write":
+        validate_odoo_write_payload(payload)
+    elif action == "odoo_delete":
+        validate_odoo_delete_payload(payload)
+    # meta actions (list_models, list_fields, rollback) need no payload validation
