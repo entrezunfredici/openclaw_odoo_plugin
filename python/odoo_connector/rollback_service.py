@@ -7,6 +7,10 @@ from typing import Any
 
 from .snapshot_store import Snapshot, SnapshotStore
 
+FULLY_REVERSIBLE = "FULLY_REVERSIBLE"
+PARTIALLY_REVERSIBLE = "PARTIALLY_REVERSIBLE"
+NOT_REVERSIBLE = "NOT_REVERSIBLE"
+
 
 @dataclass(slots=True)
 class ReversibilityInfo:
@@ -16,15 +20,15 @@ class ReversibilityInfo:
 
 _REVERSIBILITY: dict[str, ReversibilityInfo] = {
     "create": ReversibilityInfo(
-        level="FULLY_REVERSIBLE",
+        level=FULLY_REVERSIBLE,
         note="Record can be deleted to undo the create.",
     ),
     "write": ReversibilityInfo(
-        level="FULLY_REVERSIBLE",
+        level=FULLY_REVERSIBLE,
         note="Previous values were snapshotted and can be restored.",
     ),
     "delete": ReversibilityInfo(
-        level="NOT_REVERSIBLE",
+        level=NOT_REVERSIBLE,
         note="Deleted records cannot be recovered via this plugin.",
     ),
 }
@@ -37,7 +41,7 @@ class RollbackService:
     def get_reversibility(self, operation: str) -> ReversibilityInfo:
         return _REVERSIBILITY.get(
             operation,
-            ReversibilityInfo(level="NOT_REVERSIBLE", note="Unknown operation."),
+            ReversibilityInfo(level=NOT_REVERSIBLE, note="Unknown operation."),
         )
 
     def attempt_rollback(self, snapshot: Snapshot, client: Any) -> dict[str, Any]:
