@@ -1,8 +1,9 @@
-import { dirname, resolve } from "node:path";
 import { spawn } from "node:child_process";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const pluginRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const pythonCommand = process.platform === "win32" ? "python" : "python3";
 
 export interface BridgeRequest {
     action: string;
@@ -13,7 +14,7 @@ export interface BridgeRequest {
 
 export function runPythonAction(request: BridgeRequest): Promise<unknown> {
     return new Promise((resolvePromise, rejectPromise) => {
-        const child = spawn("python3", ["-m", "python.odoo_connector.cli"], {
+        const child = spawn(pythonCommand, ["-m", "python.odoo_connector.cli"], {
             cwd: pluginRoot,
             stdio: ["pipe", "pipe", "pipe"],
         });
@@ -21,8 +22,12 @@ export function runPythonAction(request: BridgeRequest): Promise<unknown> {
         let stdout = "";
         let stderr = "";
 
-        child.stdout.on("data", (data: Buffer) => { stdout += data.toString(); });
-        child.stderr.on("data", (data: Buffer) => { stderr += data.toString(); });
+        child.stdout.on("data", (data: Buffer) => {
+            stdout += data.toString();
+        });
+        child.stderr.on("data", (data: Buffer) => {
+            stderr += data.toString();
+        });
 
         child.on("close", (code: number | null) => {
             if (code !== 0) {

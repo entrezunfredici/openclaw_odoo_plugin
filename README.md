@@ -1,68 +1,36 @@
-# OMOP - OpenClaw Odoo Connector (Safe by Default)
+# OMOP - OpenClaw Odoo Connector
 
-A deny-by-default OpenClaw plugin that provides bounded Odoo actions for AI agents.
+Safe-by-default OpenClaw plugin for Odoo, built around explicit profiles and deny-by-default permission rules.
 
-> This project is intentionally **not** a generic Odoo ORM proxy.
+This plugin does not expose arbitrary ORM or method execution. Every operation is evaluated on `(model, field, operation)` before the Odoo transport layer is called.
 
-## Current implementation status (this iteration)
+## Current scope
 
-Implemented now:
-- plugin entrypoint with two bounded tools:
-  - `odoo_list_tasks` (safe read)
-  - `odoo_create_task` (bounded write)
-- structured config support for:
-  - `ConnectionProfile`
-  - `AccessProfile`
-  - `PermissionRule`
-  - `Template`
-- Python backend modules split by responsibility:
-  - profiles, rules, validators, executor, logging, snapshots, rollback metadata, Odoo transport, secrets, errors
-- write pipeline for `create_task` enforces:
-  - payload validation
-  - deny-by-default authorization by `(model, field, operation)`
-  - configurable confirmation requirement
-  - snapshot creation before write execution
-  - action logging
-- rollback interface + reversibility metadata (rollback execution is still stubbed)
+The plugin entrypoint exposes four bounded tools:
 
-Not implemented yet:
-- persistent storage (current logs/snapshots are in-memory)
-- bounded admin tools for profile/rule/template management
-- additional bounded business actions beyond `list_tasks` and `create_task`
-- rollback execution implementation
+- `odoo_read`
+- `odoo_create`
+- `odoo_update`
+- `odoo_delete`
 
-## Safety model
+Each tool accepts an explicit `profile` selection:
 
-- no access unless explicitly allowed by permission rule
-- authorization decision unit is `(model, field, operation)`
-- read and write confirmations come from access profile defaults, then rule overrides
-- global `read_only` blocks write actions
-- raw Odoo client does transport only (no policy decisions)
-- secrets are resolved internally and never returned in tool output
+- `connection_profile_id`
+- optional `access_profile_id`
 
-## Repository layout
+Write operations are blocked globally when `read_only` is enabled.
 
-- `src/` → OpenClaw plugin layer (tool registration + config + Python bridge)
-- `skills/odoo/SKILL.md` → embedded safe usage instructions
-- `python/odoo_connector/` → backend services
+## Structured configuration
 
-Key backend modules:
-- `connection_profiles.py`
-- `access_profiles.py`
-- `permission_rules.py`
-- `templates.py`
-- `action_executor.py`
-- `action_log.py`
-- `snapshot_store.py`
-- `rollback_service.py`
-- `odoo_client.py`
-- `validators.py`
-- `secret_service.py`
-- `errors.py`
+The OpenClaw config schema supports these structured objects:
 
-## Configuration
+- `ConnectionProfile`
+- `AccessProfile`
+- `PermissionRule`
+- `Template`
 
-The plugin now accepts structured config fields in `openclaw.plugin.json`:
+Key top-level fields:
+
 - `active_connection_profile_id`
 - `active_access_profile_id`
 - `default_limit`
@@ -72,41 +40,70 @@ The plugin now accepts structured config fields in `openclaw.plugin.json`:
 - `permission_rules[]`
 - `templates[]`
 
-Legacy compatibility fields (`baseUrl`, `database`, `profile`, `readOnly`, `defaultLimit`) are still mapped into a default connection/access setup for incremental migration.
+Legacy fields are still accepted for compatibility:
 
-## Action behavior
+- `baseUrl`
+- `database`
+- `profile`
+- `readOnly`
+- `defaultLimit`
 
-### `odoo_list_tasks`
-- Operation: read
-- Model: `project.task`
-- Required input: `project_id`
-- Optional input: `limit`
+## Security model
 
-### `odoo_create_task`
-- Operation: create
-- Model: `project.task`
-- Required input: `project_id`, `name`
-- Optional input: `description`, `confirmed`
-- Enforcement chain:
-  1. validation
-  2. authorization rules by field
-  3. confirmation policy check
-  4. action log start
-  5. snapshot creation
-  6. Odoo create call
-  7. action log success
+- deny by default when no rule matches
+- authorization evaluated on `(model, field, operation)`
+- confirmation enforced from access profile defaults plus rule overrides
+- delete remains explicit and confirmation-aware
+- secrets are resolved internally only
+- the Odoo client handles transport only and never decides authorization
 
-## Security notes
+## Backend layout
 
-- Delete is not exposed in this iteration.
-- Arbitrary model/method execution is not exposed.
-- Template handling is bounded to known actions (`create_task` currently).
-- Secrets are resolved from `ODOO_SECRET_<SECRET_REF>` or keyring fallback.
+Python modules are split by responsibility under [`python/odoo_connector`](/c:/Users/supoe/OneDrive/Bureau/Projets/openclaw_odoo_plugin/python/odoo_connector):
 
-## TODO - next iteration
+- profiles: [`connection_profiles.py`](/c:/Users/supoe/OneDrive/Bureau/Projets/openclaw_odoo_plugin/python/odoo_connector/connection_profiles.py), [`access_profiles.py`](/c:/Users/supoe/OneDrive/Bureau/Projets/openclaw_odoo_plugin/python/odoo_connector/access_profiles.py)
+- rules: [`permission_rules.py`](/c:/Users/supoe/OneDrive/Bureau/Projets/openclaw_odoo_plugin/python/odoo_connector/permission_rules.py)
+- validators: [`validators.py`](/c:/Users/supoe/OneDrive/Bureau/Projets/openclaw_odoo_plugin/python/odoo_connector/validators.py)
+- executor: [`action_executor.py`](/c:/Users/supoe/OneDrive/Bureau/Projets/openclaw_odoo_plugin/python/odoo_connector/action_executor.py)
+- logging: [`action_log.py`](/c:/Users/supoe/OneDrive/Bureau/Projets/openclaw_odoo_plugin/python/odoo_connector/action_log.py)
+- snapshots: [`snapshot_store.py`](/c:/Users/supoe/OneDrive/Bureau/Projets/openclaw_odoo_plugin/python/odoo_connector/snapshot_store.py)
+- rollback metadata: [`rollback_metadata.py`](/c:/Users/supoe/OneDrive/Bureau/Projets/openclaw_odoo_plugin/python/odoo_connector/rollback_metadata.py)
+- rollback interface: [`rollback_service.py`](/c:/Users/supoe/OneDrive/Bureau/Projets/openclaw_odoo_plugin/python/odoo_connector/rollback_service.py)
+- Odoo transport: [`odoo_client.py`](/c:/Users/supoe/OneDrive/Bureau/Projets/openclaw_odoo_plugin/python/odoo_connector/odoo_client.py)
+- secrets: [`secret_service.py`](/c:/Users/supoe/OneDrive/Bureau/Projets/openclaw_odoo_plugin/python/odoo_connector/secret_service.py)
+- errors: [`errors.py`](/c:/Users/supoe/OneDrive/Bureau/Projets/openclaw_odoo_plugin/python/odoo_connector/errors.py)
 
-1. Add persistent stores for action logs, snapshots, profiles, rules, and templates.
-2. Add bounded admin actions for managing profiles/rules/templates.
-3. Add one safe bounded write update flow (for example move task stage) with snapshot + rollback metadata.
-4. Implement rollback execution for supported reversible actions.
-5. Add tests for validators, permission evaluation, executor flow, snapshot creation, and rollback decisions.
+## Write pipeline
+
+The current `create_task` flow is executed through `odoo_create` on model `project.task`, optionally via a `Template` with action `create_task`.
+
+The pipeline enforces:
+
+1. payload validation
+2. deny-by-default authorization by `(model, field, operation)`
+3. configurable confirmation requirement
+4. snapshot creation before write execution
+5. action logging
+6. reversibility metadata attachment
+
+Template-bound permission rules are supported through `template_ids`.
+
+## Rollback status
+
+Rollback metadata is available for create, write, and delete operations.
+
+- `create`: `FULLY_REVERSIBLE` by intent
+- `write`: `FULLY_REVERSIBLE` by intent
+- `delete`: `NOT_REVERSIBLE`
+
+Rollback execution itself is still stubbed in this iteration. The backend returns structured rollback metadata and status, but no compensating write is executed yet.
+
+## Testing
+
+Targeted unit tests cover:
+
+- validator behavior
+- permission evaluation
+- `create_task` execution flow
+- snapshot enrichment
+- rollback metadata and stubbed interface

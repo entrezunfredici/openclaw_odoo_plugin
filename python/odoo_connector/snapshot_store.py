@@ -45,6 +45,13 @@ class SnapshotStore:
         self._by_action_log[action_log_id] = snapshot.id
         return snapshot
 
+    def attach_record_ids(self, snapshot_id: str, record_ids: list[int]) -> Snapshot | None:
+        snapshot = self._snapshots.get(snapshot_id)
+        if snapshot is None:
+            return None
+        snapshot.record_ids = list(record_ids)
+        return snapshot
+
     def get(self, snapshot_id: str) -> Snapshot | None:
         return self._snapshots.get(snapshot_id)
 

@@ -28,6 +28,10 @@ class Template:
 
         def _substitute(obj: Any) -> Any:
             if isinstance(obj, str):
+                if obj.startswith("{") and obj.endswith("}") and obj.count("{") == 1 and obj.count("}") == 1:
+                    key = obj[1:-1]
+                    if key in variables:
+                        return variables[key]
                 for k, v in variables.items():
                     obj = obj.replace(f"{{{k}}}", str(v))
                 return obj

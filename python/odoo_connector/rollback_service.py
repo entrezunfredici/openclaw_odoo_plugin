@@ -1,37 +1,12 @@
-"""Rollback service — best-effort, honest about reversibility limits."""
+"""Rollback interface with honest stubbed execution."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict
 from typing import Any
 
+from .rollback_metadata import NOT_REVERSIBLE, REVERSIBILITY_BY_OPERATION, ReversibilityInfo
 from .snapshot_store import Snapshot, SnapshotStore
-
-FULLY_REVERSIBLE = "FULLY_REVERSIBLE"
-PARTIALLY_REVERSIBLE = "PARTIALLY_REVERSIBLE"
-NOT_REVERSIBLE = "NOT_REVERSIBLE"
-
-
-@dataclass(slots=True)
-class ReversibilityInfo:
-    level: str  # FULLY_REVERSIBLE | PARTIALLY_REVERSIBLE | NOT_REVERSIBLE
-    note: str
-
-
-_REVERSIBILITY: dict[str, ReversibilityInfo] = {
-    "create": ReversibilityInfo(
-        level=FULLY_REVERSIBLE,
-        note="Record can be deleted to undo the create.",
-    ),
-    "write": ReversibilityInfo(
-        level=FULLY_REVERSIBLE,
-        note="Previous values were snapshotted and can be restored.",
-    ),
-    "delete": ReversibilityInfo(
-        level=NOT_REVERSIBLE,
-        note="Deleted records cannot be recovered via this plugin.",
-    ),
-}
 
 
 class RollbackService:
@@ -39,53 +14,23 @@ class RollbackService:
         self._store = snapshot_store
 
     def get_reversibility(self, operation: str) -> ReversibilityInfo:
-        return _REVERSIBILITY.get(
+        return REVERSIBILITY_BY_OPERATION.get(
             operation,
             ReversibilityInfo(level=NOT_REVERSIBLE, note="Unknown operation."),
         )
 
     def attempt_rollback(self, snapshot: Snapshot, client: Any) -> dict[str, Any]:
-        """Attempt to roll back using snapshot state_before."""
-        operation = snapshot.operation
-
-        if operation == "create":
-            # Roll back a create → delete the created record
-            if not snapshot.record_ids:
-                return {
-                    "ok": False,
-                    "rollback_attempted": True,
-                    "reason": "No record ids in snapshot — cannot roll back create without the created id.",
-                }
-            try:
-                client.delete(snapshot.model, snapshot.record_ids)
-                return {"ok": True, "rollback_attempted": True, "deleted_ids": snapshot.record_ids}
-            except Exception as exc:
-                return {"ok": False, "rollback_attempted": True, "reason": str(exc)}
-
-        if operation == "write":
-            records_before = snapshot.state_before.get("records", [])
-            if not records_before or not isinstance(records_before, list):
-                return {
-                    "ok": False,
-                    "rollback_attempted": True,
-                    "reason": "No valid pre-write state in snapshot.",
-                }
-            errors = []
-            for record in records_before:
-                rid = record.get("id")
-                restore_values = {k: v for k, v in record.items() if k != "id"}
-                if rid and restore_values:
-                    try:
-                        client.put(snapshot.model, [rid], restore_values)
-                    except Exception as exc:
-                        errors.append({"id": rid, "error": str(exc)})
-            if errors:
-                return {"ok": False, "rollback_attempted": True, "errors": errors}
-            return {"ok": True, "rollback_attempted": True, "restored_ids": snapshot.record_ids}
-
-        # delete → NOT_REVERSIBLE
+        reversibility = self.get_reversibility(snapshot.operation)
         return {
             "ok": False,
-            "rollback_attempted": False,
-            "reason": f"Operation '{operation}' is not reversible.",
+            "rollback_requested": True,
+            "rollback_executed": False,
+            "status": "not_implemented",
+            "snapshot_id": snapshot.id,
+            "action_log_id": snapshot.action_log_id,
+            "model": snapshot.model,
+            "operation": snapshot.operation,
+            "record_ids": snapshot.record_ids,
+            "reversibility": asdict(reversibility),
+            "reason": "Rollback execution is intentionally stubbed in this iteration.",
         }

@@ -15,10 +15,13 @@ from .errors import (
 )
 from .odoo_client import OdooClient
 from .permission_rules import PermissionDecision, PermissionRule, PermissionRuleEngine
-from .rollback_service import (
+from .rollback_metadata import (
     FULLY_REVERSIBLE,
     NOT_REVERSIBLE,
     PARTIALLY_REVERSIBLE,
+    ReversibilityInfo,
+)
+from .rollback_service import (
     RollbackService,
 )
 from .secret_service import SecretService
@@ -46,6 +49,7 @@ __all__ = [
     "PermissionDecision",
     "PermissionRule",
     "PermissionRuleEngine",
+    "ReversibilityInfo",
     "RollbackService",
     "SecretService",
     "ServiceError",

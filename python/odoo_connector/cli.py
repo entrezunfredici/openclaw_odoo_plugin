@@ -2,7 +2,7 @@
 
 Input (stdin JSON):
   {
-    "action": "odoo_read" | "odoo_create" | "odoo_write" | "odoo_delete"
+    "action": "odoo_read" | "odoo_create" | "odoo_update" | "odoo_write" | "odoo_delete"
             | "odoo_list_models" | "odoo_list_fields" | "odoo_rollback",
     "model":   "project.task",   // omitted for meta actions
     "payload": { ...params... },
